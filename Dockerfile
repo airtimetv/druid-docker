@@ -1,41 +1,20 @@
-# VERSION 0.12.3-2
-FROM anapsix/alpine-java:8_server-jre_unlimited
+FROM openjdk:8-jre
 
-MAINTAINER Maciej Brynski <maciek@brynski.pl>
-# Forked from https://github.com/saidimu/druid-docker
+ARG DRUID_VERSION=0.15.1-incubating
+ENV DRUID_VERSION ${DRUID_VERSION}
+ENV LOG_LEVEL info
+RUN apt-get update
+RUN apt-get install -y curl gettext-base
+RUN apt-get install -y libpostgresql-jdbc-java
+RUN apt install -y iproute2
+RUN curl http://mirrors.ocf.berkeley.edu/apache/incubator/druid/${DRUID_VERSION}/apache-druid-${DRUID_VERSION}-bin.tar.gz > /opt/druid-${DRUID_VERSION}-bin.tar.gz
+RUN tar -xvf /opt/druid-${DRUID_VERSION}-bin.tar.gz -C /opt/ && rm -f /opt/druid-${DRUID_VERSION}-bin.tar.gz
+RUN mv /opt/apache-druid-${DRUID_VERSION} /opt/druid && mkdir -p /var/log/druid && mkdir -p /opt/druid/data
+RUN rm -f -r /opt/druid/conf /opt/druid/conf-quickstart
 
-# ENV DB_HOST            mysql
-# ENV DB_PORT            3306
-# ENV DB_DBNAME          druid
-# ENV DB_USERNAME        druid
-# ENV DB_PASSWORD        druid
-# ENV ZOOKEEPER_HOST     zookeeper
-# ENV S3_STORAGE_BUCKET  druid-deep-storage
-# ENV S3_INDEXING_BUCKET druid-indexing
-# ENV S3_ACCESS_KEY      xxxxxxxxxxxx
-# ENV S3_ACCESS_KEY      xxxxxxxxxxxx
-ENV DRUID_VERSION      0.12.3
+RUN mkdir -p /tmp/druid
 
-# Druid env variable
-ENV DRUID_XMX          '-'
-ENV DRUID_XMS          '-'
-ENV DRUID_NEWSIZE      '-'
-ENV DRUID_MAXNEWSIZE   '-'
-ENV DRUID_HOSTNAME     '-'
-ENV DRUID_LOGLEVEL     '-'
-ENV DRUID_USE_CONTAINER_IP '-'
-ENV DRUID_SEGMENTCACHE_LOCATION  '-'
-ENV DRUID_DEEPSTORAGE_LOCAL_DIR  '-'
-
-RUN apk update \
-    && apk add --no-cache bash curl \
-    && mkdir /tmp/druid \
-    && curl \
-    http://static.druid.io/artifacts/releases/druid-$DRUID_VERSION-bin.tar.gz | tar -xzf - -C /opt \
-    && ln -s /opt/druid-$DRUID_VERSION /opt/druid
-RUN curl http://static.druid.io/artifacts/releases/mysql-metadata-storage-$DRUID_VERSION.tar.gz | tar -xzf - -C /opt/druid/extensions
-
-COPY conf /opt/druid/conf
-COPY start-druid.sh /start-druid.sh
-
-ENTRYPOINT ["/start-druid.sh"]
+COPY conf /opt/druid/conf/
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+ENTRYPOINT ["./docker-entrypoint.sh"]

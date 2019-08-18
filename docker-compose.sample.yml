@@ -1,0 +1,168 @@
+version: "2"
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_DB=druid
+    volumes:
+      - ./conf/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+  broker:
+    image: docker.io/macboypro/druid:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8082:8082
+    command:
+      - broker
+    environment:
+      - DRUID_USE_CONTAINER_IP=true
+      - DRUID_XMX=1g
+      - DRUID_XMS=1g
+      - DRUID_MAXNEWSIZE=250m
+      - DRUID_NEWSIZE=250m
+      - DRUID_LOGLEVEL=debug
+      - ZOOKEEPER_HOST=-
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DBNAME=druid
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+
+
+  coordinator:
+    image: docker.io/macboypro/druid:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8081:8081
+    command:
+      - coordinator
+    environment:
+      - DRUID_USE_CONTAINER_IP=true
+      - DRUID_XMX=1g
+      - DRUID_XMS=1g
+      - DRUID_MAXNEWSIZE=250m
+      - DRUID_NEWSIZE=250m
+      - DRUID_LOGLEVEL=debug
+      - ZOOKEEPER_HOST=-
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DBNAME=druid
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+
+  historical:
+    image: docker.io/macboypro/druid:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8093:8093
+    command:
+      - historical
+    environment:
+      - DRUID_USE_CONTAINER_IP=true
+      - DRUID_XMX=1g
+      - DRUID_XMS=1g
+      - DRUID_MAXNEWSIZE=8g
+      - DRUID_NEWSIZE=250m
+      - DRUID_LOGLEVEL=debug
+      - ZOOKEEPER_HOST=-
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DBNAME=druid
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+
+  middlemanager:
+    image: docker.io/macboypro/druid:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8091:8091
+    command:
+      - middleManager
+    environment:
+      - DRUID_USE_CONTAINER_IP=true
+      - DRUID_XMX=6g
+      - DRUID_XMS=1g
+      - DRUID_MAXNEWSIZE=250m
+      - DRUID_NEWSIZE=250m
+      - DRUID_LOGLEVEL=debug
+      - ZOOKEEPER_HOST=-
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DBNAME=druid
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+
+  overlord:
+    image: docker.io/macboypro/druid:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8090:8090
+    command:
+      - overlord
+    environment:
+      - DRUID_USE_CONTAINER_IP=true
+      - DRUID_XMX=6g
+      - DRUID_XMS=1g
+      - DRUID_MAXNEWSIZE=250m
+      - DRUID_NEWSIZE=250m
+      - DRUID_LOGLEVEL=debug
+      - ZOOKEEPER_HOST=-
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DBNAME=druid
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+
+  router:
+    image: docker.io/macboypro/druid:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    command:
+      - router
+    environment:
+      - DRUID_USE_CONTAINER_IP=true
+      - DRUID_XMX=13g
+      - DRUID_XMS=13g
+      - DRUID_MAXNEWSIZE=256m
+      - DRUID_NEWSIZE=256m
+      - DRUID_LOGLEVEL=debug
+      - ZOOKEEPER_HOST=-
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DBNAME=druid
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=keepasecret
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432

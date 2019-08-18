@@ -1,0 +1,731 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all
+spec:
+  podSelector: {}
+  egress:
+    - {}
+  policyTypes:
+    - Egress
+    - Ingress
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broker
+  labels:
+    app: druid
+    component: broker
+    release: latest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      component: broker
+      release: latest
+  template:
+    metadata:
+      labels:
+        app: druid
+        component: broker
+        release: latest
+    spec:
+      containers:
+      - name: broker
+        image: docker.io/airtimetv/druid-docker:latest
+        imagePullPolicy: Always
+        args:
+          - "broker"
+        env:
+        - name: DRUID_USE_CONTAINER_IP
+          value: "true"
+        - name: DRUID_LOGLEVEL
+          value: WARN
+        - name: DRUID_MAXNEWSIZE
+          value: 250m
+        - name: DRUID_NEWSIZE
+          value: 250m
+        - name: DRUID_NODE_TYPE
+          value: broker
+        - name: DRUID_XMS
+          value: 1024m
+        - name: DRUID_XMX
+          value: 2048m
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_DBNAME
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        - name: ZOOKEEPER_HOST
+          value: -
+        ports:
+          - name: http
+            containerPort: 8082
+            protocol: TCP
+        livenessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8082
+        readinessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8082
+        resources: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+  labels:
+    app: druid
+    component: broker
+    release: latest
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8082
+    targetPort: 8082
+    name: http
+  selector:
+    app: druid
+    component: broker
+    release: latest
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: broker-ingress
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: broker
+              servicePort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coordinator
+  labels:
+    app: druid
+    component: coordinator
+    release: latest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      component: coordinator
+      release: latest
+  template:
+    metadata:
+      labels:
+        app: druid
+        component: coordinator
+        release: latest
+    spec:
+      containers:
+      - name: coordinator
+        image: docker.io/airtimetv/druid-docker:latest
+        imagePullPolicy: Always
+        args:
+          - "coordinator"
+        env:
+        - name: DRUID_USE_CONTAINER_IP
+          value: "true"
+        - name: DRUID_LOGLEVEL
+          value: WARN
+        - name: DRUID_MAXNEWSIZE
+          value: 250m
+        - name: DRUID_NEWSIZE
+          value: 250m
+        - name: DRUID_XMS
+          value: 1024m
+        - name: DRUID_XMX
+          value: 2048m
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_DBNAME
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        - name: POSTGRES_HOST
+          value: postgres
+        - name: ZOOKEEPER_HOST
+          value: -
+        ports:
+          - name: http
+            containerPort: 8081
+            protocol: TCP
+        livenessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8081
+        readinessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coordinator
+  labels:
+    app: druid
+    component: coordinator
+    release: latest
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+    name: http
+  selector:
+    app: druid
+    component: coordinator
+    release: latest
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: coordinator-ingress
+  labels:
+    app: druid
+    component: coordinator
+    release: latest
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: coordinator
+              servicePort: 8081
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: historical
+  labels:
+    app: druid
+    release: latest
+    component: historical
+spec:
+  serviceName: historical
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      release: latest
+      component: historical
+  template:
+    metadata:
+      labels:
+        app: druid
+        release: latest
+        component: historical
+    spec:
+      containers:
+      - name: druid
+        env:
+        - name: DRUID_USE_CONTAINER_IP
+          value: "true"
+        - name: DRUID_LOGLEVEL
+          value: WARN
+        - name: DRUID_MAXNEWSIZE
+          value: 250m
+        - name: DRUID_NEWSIZE
+          value: 250m
+        - name: DRUID_NODE_TYPE
+          value: historical
+        - name: DRUID_XMS
+          value: 1024m
+        - name: DRUID_XMX
+          value: 2048m
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_DBNAME
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        - name: ZOOKEEPER_HOST
+          value: -
+        livenessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8083
+        readinessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8083
+        image: docker.io/airtimetv/druid-docker:latest
+        imagePullPolicy: Always
+        args:
+          - historical
+        ports:
+        - name: http
+          containerPort: 8083
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/druid/
+          name: data
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: "4Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: historical
+  labels:
+    app: druid
+    release: latest
+    component: historical
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8083
+    targetPort: 8083
+    name: http
+  selector:
+    app: druid
+    release: latest
+    component: historical
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: historical-ingress
+  labels:
+    app: druid
+    release: latest
+    component: historical
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: historical
+              servicePort: 8083
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: middlemanager
+  labels:
+    app: druid
+    component: middlemanager
+    release: latest
+spec:
+  serviceName: "middlemanager"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      component: middlemanager
+      release: latest
+  template:
+    metadata:
+      labels:
+        app: druid
+        component: middlemanager
+        release: latest
+    spec:
+      containers:
+      - name: druid
+        env:
+        - name: DRUID_USE_CONTAINER_IP
+          value: "true"
+        - name: DRUID_LOGLEVEL
+          value: WARN
+        - name: DRUID_MAXNEWSIZE
+          value: 250m
+        - name: DRUID_NEWSIZE
+          value: 250m
+        - name: DRUID_XMS
+          value: 1024m
+        - name: DRUID_XMX
+          value: 2048m
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_DBNAME
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        - name: ZOOKEEPER_HOST
+          value: -
+        livenessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8091
+        readinessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8091
+        image: docker.io/airtimetv/druid-docker:latest
+        imagePullPolicy: Always
+        args:
+          - middleManager
+        ports:
+        - name: http
+          containerPort: 8091
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/druid/
+          name: data
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: "4Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: middlemanager
+  labels:
+    app: druid
+    component: middlemanager
+    release: latest
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8091
+    targetPort: 8091
+    protocol: TCP
+    name: http
+  selector:
+    app: druid
+    component: middlemanager
+    release: latest
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: middlemanager-ingress
+  labels:
+    app: druid
+    component: middlemanager
+    release: latest
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: middlemanager
+              servicePort: 8091
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: overlord
+  labels:
+    app: druid
+    component: overlord
+    release: latest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      component: overlord
+      release: latest
+  template:
+    metadata:
+      labels:
+        app: druid
+        component: overlord
+        release: latest
+    spec:
+      containers:
+      - name: overlord
+        image: docker.io/airtimetv/druid-docker:latest
+        imagePullPolicy: Always
+        args:
+          - overlord
+        env:
+        - name: DRUID_USE_CONTAINER_IP
+          value: "true"
+        - name: DRUID_LOGLEVEL
+          value: WARN
+        - name: DRUID_MAXNEWSIZE
+          value: 250m
+        - name: DRUID_NEWSIZE
+          value: 250m
+        - name: DRUID_XMS
+          value: 1024m
+        - name: DRUID_XMX
+          value: 2048m
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_DBNAME
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        - name: ZOOKEEPER_HOST
+          value: -
+        ports:
+          - name: http
+            containerPort: 8090
+            protocol: TCP
+        livenessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8090
+        readinessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: overlord
+  labels:
+    app: druid
+    component: overlord
+    release: latest
+spec:
+  ports:
+  - port: 8090
+    targetPort: 8090
+    protocol: TCP
+    name: http
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: overlord-ingress
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: overlord
+              servicePort: 8090
+---
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: router
+  labels:
+    app: druid
+    component: router
+    release: latest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      component: router
+      release: latest
+  template:
+    metadata:
+      labels:
+        app: druid
+        component: router
+        release: latest
+    spec:
+      containers:
+      - name: router
+        image: docker.io/airtimetv/druid-docker:latest
+        imagePullPolicy: Always
+        args:
+          - router
+        env:
+        - name: DRUID_USE_CONTAINER_IP
+          value: "true"
+        - name: DRUID_LOGLEVEL
+          value: WARN
+        - name: DRUID_MAXNEWSIZE
+          value: 250m
+        - name: DRUID_NEWSIZE
+          value: 250m
+        - name: DRUID_XMS
+          value: 1024m
+        - name: DRUID_XMX
+          value: 2048m
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_DBNAME
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        - name: ZOOKEEPER_HOST
+          value: -
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+        livenessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8080
+        readinessProbe:
+          initialDelaySeconds: 60
+          httpGet:
+            path: /status/health
+            port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: router
+  labels:
+    app: druid
+    component: router
+    release: latest
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: router-ingress
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: router
+              servicePort: 8080
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: druid
+    component: postgres
+    release: latest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: druid
+      component: postgres
+      release: latest
+  template:
+    metadata:
+      labels:
+        app: druid
+        component: postgres
+        release: latest
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: druid
+        - name: POSTGRES_PASSWORD
+          value: keepasecret
+        - name: POSTGRES_USER
+          value: druid
+        image: postgres:latest
+        name: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: druid
+    component: postgres
+    release: latest
+spec:
+  type: NodePort
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: http
+  selector:
+    app: druid
+    component: postgres
+    release: latest
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: postgres-ingress
+spec:
+  tls: []
+  rules:
+    - http:
+        paths:
+          - backend:
+              serviceName: postgres
+              servicePort: 5432
