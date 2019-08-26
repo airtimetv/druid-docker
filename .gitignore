@@ -1,3 +1,5 @@
 .*.sw*
 .*.un*
 Makefile
+docker-compose.yml
+druid-deployment.yaml
